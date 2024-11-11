@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.productCatalogService.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.productCatalogService.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.productCatalogService.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.productCatalogService.name }}
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        image: {{ .Values.images.repository }}/{{ .Values.productCatalogService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
+        ports:
+        - containerPort: 3550
+        env:
+        - name: PORT
+          value: "3550"
+        - name: EXTRA_LATENCY
+          value: {{ .Values.productCatalogService.extraLatency }}
+        readinessProbe:
+          grpc:
+            port: 3550
+        livenessProbe:
+          grpc:
+            port: 3550
+        resources:
+          {{- toYaml .Values.productCatalogService.resources | nindent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.productCatalogService.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.productCatalogService.name }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Values.productCatalogService.name }}
+  ports:
+  - name: grpc
+    port: 3550
+    targetPort: 3550
