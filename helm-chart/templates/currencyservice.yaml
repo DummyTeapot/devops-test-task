@@ -14,7 +14,12 @@ spec:
       labels:
         app: {{ .Values.currencyService.name }}
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 10
+
+      securityContext:
+        fsGroup: 2000
+        runAsNonRoot: true
+
       containers:
       - name: server
         securityContext:
@@ -24,10 +29,14 @@ spec:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
+          runAsUser: 1000
+
         image: {{ .Values.images.repository }}/{{ .Values.currencyService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
+
         ports:
         - name: grpc
           containerPort: 7000
+
         env:
         - name: PORT
           value: "7000"
@@ -37,14 +46,24 @@ spec:
           value: "1"
         - name: DISABLE_PROFILER
           value: "1"          
+
+        # Настройки Readiness и Liveness проб
         readinessProbe:
           grpc:
             port: 7000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
         livenessProbe:
           grpc:
             port: 7000
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+
         resources:
           {{- toYaml .Values.currencyService.resources | nindent 10 }}
+
 ---
 apiVersion: v1
 kind: Service
@@ -61,3 +80,4 @@ spec:
   - name: grpc
     port: 7000
     targetPort: 7000
+  

@@ -14,7 +14,9 @@ spec:
       labels:
         app: {{ .Values.productCatalogService.name }}
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 2000
       containers:
       - name: server
         securityContext:
@@ -26,20 +28,26 @@ spec:
           readOnlyRootFilesystem: true
         image: {{ .Values.images.repository }}/{{ .Values.productCatalogService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
         ports:
-        - containerPort: 3550
+        - name: grpc
+          containerPort: 3550
         env:
         - name: PORT
           value: "3550"
         - name: EXTRA_LATENCY
-          value: {{ .Values.productCatalogService.extraLatency }}
+          value: "{{ .Values.productCatalogService.extraLatency }}"
         readinessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 5
           grpc:
             port: 3550
         livenessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 5
           grpc:
             port: 3550
         resources:
-          {{- toYaml .Values.productCatalogService.resources | nindent 10 }}
+          {{- toYaml .Values.productCatalogService.resources | nindent 12 }}
+
 ---
 apiVersion: v1
 kind: Service

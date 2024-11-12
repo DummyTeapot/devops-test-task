@@ -14,7 +14,9 @@ spec:
       labels:
         app: {{ .Values.emailService.name }}
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 2000
       containers:
       - name: server
         securityContext:
@@ -26,7 +28,8 @@ spec:
           readOnlyRootFilesystem: true
         image: {{ .Values.images.repository }}/{{ .Values.emailService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
         ports:
-        - containerPort: 8080
+        - name: grpc
+          containerPort: 8080
         env:
         - name: PORT
           value: "8080"
@@ -35,13 +38,15 @@ spec:
         - name: DISABLE_TRACING
           value: "1"
         - name: DISABLE_PROFILER
-          value: "1"        
+          value: "1"
         readinessProbe:
           periodSeconds: 5
+          initialDelaySeconds: 10
           grpc:
             port: 8080
         livenessProbe:
           periodSeconds: 5
+          initialDelaySeconds: 10
           grpc:
             port: 8080
         resources:
@@ -60,5 +65,5 @@ spec:
     app: {{ .Values.emailService.name }}
   ports:
   - name: grpc
-    port: 5000
-    targetPort: 8080
+    port: 8080
+    targetPort: grpc

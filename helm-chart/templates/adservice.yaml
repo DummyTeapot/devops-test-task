@@ -4,7 +4,11 @@ metadata:
   name: {{ .Values.adService.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.adService.name }}
+    app.kubernetes.io/name: {{ .Values.adService.name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/component: ad-service
+    app.kubernetes.io/part-of: my-application
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   selector:
     matchLabels:
@@ -15,6 +19,16 @@ spec:
         app: {{ .Values.adService.name }}
     spec:
       terminationGracePeriodSeconds: 5
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.adService.name }}
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: server
         securityContext:
@@ -24,6 +38,8 @@ spec:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
+          runAsUser: 1000
+          runAsGroup: 3000
         image: {{ .Values.images.repository }}/{{ .Values.adService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
         ports:
         - containerPort: 9555
@@ -33,13 +49,17 @@ spec:
         resources:
           {{- toYaml .Values.adService.resources | nindent 10 }}
         readinessProbe:
-          initialDelaySeconds: 20
+          initialDelaySeconds: 10
           periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
           grpc:
             port: 9555
         livenessProbe:
-          initialDelaySeconds: 20
+          initialDelaySeconds: 10
           periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
           grpc:
             port: 9555
 ---
@@ -49,7 +69,9 @@ metadata:
   name: {{ .Values.adService.name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.adService.name }}
+    app.kubernetes.io/name: {{ .Values.adService.name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/component: ad-service
 spec:
   type: ClusterIP
   selector:

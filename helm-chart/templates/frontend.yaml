@@ -16,6 +16,9 @@ spec:
       annotations:
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 2000
       containers:
         - name: server
           securityContext:
@@ -27,9 +30,11 @@ spec:
             readOnlyRootFilesystem: true
           image: {{ .Values.images.repository }}/{{ .Values.frontend.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
           ports:
-          - containerPort: 8080
+          - name: http
+            containerPort: 8080
           readinessProbe:
             initialDelaySeconds: 10
+            periodSeconds: 5  # Периодичность проверок готовности
             httpGet:
               path: "/_healthz"
               port: 8080
@@ -38,6 +43,7 @@ spec:
                 value: "shop_session-id=x-readiness-probe"
           livenessProbe:
             initialDelaySeconds: 10
+            periodSeconds: 5  # Периодичность проверок живучести
             httpGet:
               path: "/_healthz"
               port: 8080

@@ -14,20 +14,22 @@ spec:
       labels:
         app: {{ .Values.recommendationService.name }}
     spec:
-      terminationGracePeriodSeconds: 5
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 2000
       containers:
       - name: server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         image: {{ .Values.images.repository }}/{{ .Values.recommendationService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
         ports:
-        - containerPort: 8080
-        readinessProbe:
-          periodSeconds: 5
-          grpc:
-            port: 8080
-        livenessProbe:
-          periodSeconds: 5
-          grpc:
-            port: 8080
+        - name: grpc
+          containerPort: 8080
         env:
         - name: PORT
           value: "8080"
@@ -38,9 +40,20 @@ spec:
         - name: DISABLE_TRACING
           value: "1"
         - name: DISABLE_PROFILER
-          value: "1"          
+          value: "1"
+        readinessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          grpc:
+            port: 8080
+        livenessProbe:
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          grpc:
+            port: 8080
         resources:
-          {{- toYaml .Values.recommendationService.resources | nindent 10 }}
+          {{- toYaml .Values.recommendationService.resources | nindent 12 }}
+
 ---
 apiVersion: v1
 kind: Service

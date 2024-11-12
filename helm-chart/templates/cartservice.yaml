@@ -14,6 +14,19 @@ spec:
       labels:
         app: {{ .Values.cartService.name }}
     spec:
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 2000
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.cartService.name }}
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: server
         securityContext:
@@ -23,6 +36,8 @@ spec:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
+          runAsUser: 1000
+          runAsGroup: 3000
         image: {{ .Values.images.repository }}/{{ .Values.cartService.name }}:{{ .Values.images.tag | default .Chart.AppVersion }}
         ports:
         - containerPort: 7070
@@ -36,12 +51,17 @@ spec:
         resources:
           {{- toYaml .Values.cartService.resources | nindent 10 }}
         readinessProbe:
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
           grpc:
             port: 7070
         livenessProbe:
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
           grpc:
             port: 7070
 ---
@@ -61,7 +81,6 @@ spec:
     port: 7070
     targetPort: 7070
 
-
 {{- if .Values.cartDatabase.inClusterRedis.create }}
 ---
 apiVersion: apps/v1
@@ -69,6 +88,8 @@ kind: Deployment
 metadata:
   name: {{ .Values.cartDatabase.inClusterRedis.name }}
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.cartDatabase.inClusterRedis.name }}
 spec:
   selector:
     matchLabels:
@@ -78,6 +99,19 @@ spec:
       labels:
         app: {{ .Values.cartDatabase.inClusterRedis.name }}
     spec:
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        fsGroup: 2000
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.cartDatabase.inClusterRedis.name }}
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: redis
         {{- if .Values.cartDatabase.inClusterRedis.publicRepository }}
@@ -85,14 +119,27 @@ spec:
         {{- else }}
         image: {{ .Values.images.repository }}/redis:alpine
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
+          runAsGroup: 3000
         ports:
         - containerPort: 6379
         readinessProbe:
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
           tcpSocket:
             port: 6379
         livenessProbe:
           periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
           tcpSocket:
             port: 6379
         volumeMounts:
@@ -114,6 +161,8 @@ kind: Service
 metadata:
   name: {{ .Values.cartDatabase.inClusterRedis.name }}
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.cartDatabase.inClusterRedis.name }}
 spec:
   type: ClusterIP
   selector:
